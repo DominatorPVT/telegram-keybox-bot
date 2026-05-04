@@ -22,7 +22,7 @@ async def start_cmd(message: types.Message):
     keyboard = types.InlineKeyboardMarkup()
     keyboard.add(types.InlineKeyboardButton("🔑 Keybox", callback_data="keybox"))
     keyboard.add(types.InlineKeyboardButton("✅ Pass Check", callback_data="passcheck"))
-    keyboard.add(types.InlineKeyboardButton("👨‍💻 Developer", url="https://github.com/YourProfile"))
+    keyboard.add(types.InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/skyLabsUpdates"))
     
     start_text = (
         f"👋 Welcome, {user_name}!\n"
