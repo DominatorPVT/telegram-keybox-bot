@@ -1,14 +1,28 @@
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
-import os, json, glob, datetime
+import os, json, glob, datetime, shutil
 
 TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = 8521407395
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
-admins = set()
-last_update = None  # track keybox update time
+ADMINS_FILE = "keybox_store/admins.json"
+LOG_FILE = "keybox_store/keybox-log.json"
+
+# Load admins from file
+def load_admins():
+    if os.path.exists(ADMINS_FILE):
+        with open(ADMINS_FILE, "r") as f:
+            return set(json.load(f))
+    return set()
+
+# Save admins to file
+def save_admins(admins):
+    with open(ADMINS_FILE, "w") as f:
+        json.dump(list(admins), f)
+
+admins = load_admins()
 
 # Load pass status JSON
 def load_pass_status():
@@ -19,6 +33,22 @@ def load_pass_status():
 def get_keybox_file():
     files = glob.glob("keybox_store/keybox/*.xml")
     return files[0] if files else None
+
+# Log keybox updates
+def log_update(file_name, uploader_id):
+    entry = {
+        "file": file_name,
+        "uploader": uploader_id,
+        "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    logs = []
+    if os.path.exists(LOG_FILE):
+        with open(LOG_FILE, "r") as f:
+            logs = json.load(f)
+    logs.append(entry)
+    with open(LOG_FILE, "w") as f:
+        json.dump(logs, f, indent=2)
+    return entry
 
 @dp.message_handler(commands=['help'])
 async def help_cmd(message: types.Message):
@@ -40,6 +70,7 @@ async def add_admin(message: types.Message):
     try:
         new_id = int(message.get_args())
         admins.add(new_id)
+        save_admins(admins)
         await message.answer(f"✅ Admin {new_id} added successfully.")
     except:
         await message.answer("⚠️ Usage: /addadmin <user_id>")
@@ -52,6 +83,7 @@ async def remove_admin(message: types.Message):
         rem_id = int(message.get_args())
         if rem_id in admins:
             admins.remove(rem_id)
+            save_admins(admins)
             await message.answer(f"✅ Admin {rem_id} removed successfully.")
         else:
             await message.answer("⚠️ This ID is not an admin.")
@@ -68,7 +100,6 @@ async def admin_list(message: types.Message):
 
 @dp.message_handler(commands=['uploadkeybox'])
 async def upload_keybox(message: types.Message):
-    global last_update
     if message.from_user.id != OWNER_ID and message.from_user.id not in admins:
         return await message.answer("❌ Only owner or admins can upload keybox.")
     if not message.document:
@@ -76,9 +107,21 @@ async def upload_keybox(message: types.Message):
     if not message.document.file_name.endswith(".xml"):
         return await message.answer("⚠️ Only .xml files are allowed.")
     
+    # Backup old file
+    old_file = get_keybox_file()
+    if old_file:
+        os.makedirs("keybox_store/backup", exist_ok=True)
+        shutil.move(old_file, f"keybox_store/backup/{os.path.basename(old_file)}")
+    
+    # Save new file
     await message.document.download(destination_file=f"keybox_store/keybox/{message.document.file_name}")
-    last_update = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    await message.answer(f"✅ New keybox file {message.document.file_name} uploaded successfully.\n🕒 Updated at: {last_update}")
+    entry = log_update(message.document.file_name, message.from_user.id)
+    
+    await message.answer(f"✅ New keybox file {message.document.file_name} uploaded successfully.\n🕒 Updated at: {entry['time']}")
+    
+    # Notify owner
+    if message.from_user.id != OWNER_ID:
+        await bot.send_message(OWNER_ID, f"📤 New keybox uploaded by Admin {message.from_user.id} at {entry['time']}")
 
 @dp.message_handler(commands=['start'])
 async def start_cmd(message: types.Message):
@@ -104,13 +147,14 @@ async def send_keybox(callback_query: types.CallbackQuery):
     keybox_file = get_keybox_file()
     if keybox_file:
         await bot.send_document(callback_query.from_user.id, open(keybox_file, "rb"))
-        # Show last updated time
-        if last_update:
-            await bot.send_message(callback_query.from_user.id, f"🕒 Keybox last updated: {last_update}")
-        else:
-            # If no upload done yet, show file modification time
-            mtime = datetime.datetime.fromtimestamp(os.path.getmtime(keybox_file)).strftime("%Y-%m-%d %H:%M:%S")
-            await bot.send_message(callback_query.from_user.id, f"🕒 Keybox last updated: {mtime}")
+        # Show last updated info
+        if os.path.exists(LOG_FILE):
+            with open(LOG_FILE, "r") as f:
+                logs = json.load(f)
+            if logs:
+                last_entry = logs[-1]
+                await bot.send_message(callback_query.from_user.id,
+                    f"🕒 Keybox last updated: {last_entry['time']} by {last_entry['uploader']}")
     else:
         await bot.send_message(callback_query.from_user.id, "⚠️ No keybox file found in keybox_store/keybox/.")
 
