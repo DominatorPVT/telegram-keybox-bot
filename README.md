@@ -21,3 +21,10 @@ A simple Telegram bot built with **Python + aiogram**, hosted on **GitHub Action
 ```bash
 pip install -r requirements.txt
 python bot.py
+
+## 📂Project Structure
+telegram-keybox-bot/
+├── bot.py
+├── requirements.txt
+├── keybox-pass-check.json
+└── .github/workflows/main.yml
