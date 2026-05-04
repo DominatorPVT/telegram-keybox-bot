@@ -1,14 +1,14 @@
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
-import os, json, glob, subprocess
+import os, json, glob, datetime
 
 TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = 8521407395  # fixed owner ID
+OWNER_ID = 8521407395
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
-# Admins list stored in memory (can be extended to file/db)
 admins = set()
+last_update = None  # track keybox update time
 
 # Load pass status JSON
 def load_pass_status():
@@ -68,24 +68,17 @@ async def admin_list(message: types.Message):
 
 @dp.message_handler(commands=['uploadkeybox'])
 async def upload_keybox(message: types.Message):
+    global last_update
     if message.from_user.id != OWNER_ID and message.from_user.id not in admins:
         return await message.answer("❌ Only owner or admins can upload keybox.")
     if not message.document:
-        return await message.answer("📂 Please send a .xml file with this command.")
+        return await message.answer("📂 Please attach a .xml file with this command.")
     if not message.document.file_name.endswith(".xml"):
         return await message.answer("⚠️ Only .xml files are allowed.")
     
-    file = await message.document.download(destination_file=f"keybox_store/keybox/{message.document.file_name}")
-    await message.answer(f"✅ New keybox file {message.document.file_name} uploaded successfully.")
-
-    # Commit to GitHub (branch master)
-    try:
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", f"New keybox uploaded by {message.from_user.id}"], check=True)
-        subprocess.run(["git", "push", "origin", "master"], check=True)
-        await message.answer("📤 Keybox file pushed to GitHub master branch.")
-    except Exception as e:
-        await message.answer(f"⚠️ GitHub push failed: {e}")
+    await message.document.download(destination_file=f"keybox_store/keybox/{message.document.file_name}")
+    last_update = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    await message.answer(f"✅ New keybox file {message.document.file_name} uploaded successfully.\n🕒 Updated at: {last_update}")
 
 @dp.message_handler(commands=['start'])
 async def start_cmd(message: types.Message):
@@ -111,6 +104,13 @@ async def send_keybox(callback_query: types.CallbackQuery):
     keybox_file = get_keybox_file()
     if keybox_file:
         await bot.send_document(callback_query.from_user.id, open(keybox_file, "rb"))
+        # Show last updated time
+        if last_update:
+            await bot.send_message(callback_query.from_user.id, f"🕒 Keybox last updated: {last_update}")
+        else:
+            # If no upload done yet, show file modification time
+            mtime = datetime.datetime.fromtimestamp(os.path.getmtime(keybox_file)).strftime("%Y-%m-%d %H:%M:%S")
+            await bot.send_message(callback_query.from_user.id, f"🕒 Keybox last updated: {mtime}")
     else:
         await bot.send_message(callback_query.from_user.id, "⚠️ No keybox file found in keybox_store/keybox/.")
 
