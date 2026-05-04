@@ -1,39 +1,3 @@
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
-import os, json, glob, datetime, shutil
-
-TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = 8521407395
-bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
-
-ADMINS_FILE = "keybox_store/admins.json"
-LOG_FILE = "keybox_store/keybox-log.json"
-
-# Load admins from file
-def load_admins():
-    if os.path.exists(ADMINS_FILE):
-        with open(ADMINS_FILE, "r") as f:
-            return set(json.load(f))
-    return set()
-
-# Save admins to file
-def save_admins(admins):
-    with open(ADMINS_FILE, "w") as f:
-        json.dump(list(admins), f)
-
-admins = load_admins()
-
-# Load pass status JSON
-def load_pass_status():
-    with open("keybox_store/keybox-pass-check.json", "r") as f:
-        return json.load(f)
-
-# Find any XML file inside keybox_store/keybox/
-def get_keybox_file():
-    files = glob.glob("keybox_store/keybox/*.xml")
-    return files[0] if files else None
-
 # Log keybox updates
 def log_update(file_name, uploader_id):
     entry = {
