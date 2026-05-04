@@ -5,7 +5,6 @@ A simple Telegram bot built with **Python + aiogram**, hosted on **GitHub Action
 ### Features
 - 🔑 Send Keybox file
 - ✅ Show Pass Check (Basic, Device, Strong) from JSON
-- 👨‍💻 Developer profile link
 
 ### Setup
 1. Create a bot with [BotFather](https://t.me/BotFather) and get the token.
@@ -17,14 +16,14 @@ A simple Telegram bot built with **Python + aiogram**, hosted on **GitHub Action
 4. Edit `keybox-pass-check.json` to update status (✅ / ❌).
 5. Push changes → GitHub Actions will run the bot.
 
-### Run Locally
-```bash
-pip install -r requirements.txt
-python bot.py
-
 ## 📂Project Structure
 telegram-keybox-bot/
 ├── bot.py
 ├── requirements.txt
 ├── keybox-pass-check.json
 └── .github/workflows/main.yml
+
+### Run Locally
+```bash
+pip install -r requirements.txt
+python bot.py
